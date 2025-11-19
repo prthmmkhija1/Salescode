@@ -39,17 +39,29 @@ test_results = {
 
 
 class TestAgent(Agent):
-    """Test agent with long responses to allow interruption testing."""
+    """Test agent that stays silent after stop commands."""
+    
+    # Words that should make agent completely silent
+    STOP_WORDS = ['stop', 'wait', 'chup', 'shaant', 'shant', 'ruko', 'rukho', 'enough', 'quiet', 'silence', 'khamosh']
     
     def __init__(self) -> None:
         super().__init__(
             instructions=(
-                "You are a helpful voice assistant. "
-                "When asked about weather, use the get_weather function. "
+                "You are a helpful multilingual voice assistant. "
                 "Answer questions naturally and conversationally. "
-                "Keep your responses concise but friendly."
+                "If the user speaks Hindi, respond in Hindi. If they speak English, respond in English. "
+                "Keep responses concise and friendly. "
+                "CRITICAL: If the user says ONLY stop/wait/chup/shaant/ruko, respond with exactly: 'OK'"
             ),
         )
+    
+    def say(self, text: str) -> None:
+        """Override say to check for stop command responses."""
+        # If the response is just acknowledging a stop command, suppress it
+        if text.strip().lower() in ['ok', 'okay', 'sure', 'alright']:
+            logger.info(f"🔇 Suppressing acknowledgment: '{text}'")
+            return
+        super().say(text)
 
     @function_tool
     async def get_weather(self, location: str = "New York") -> str:
@@ -87,9 +99,10 @@ async def entrypoint(ctx: JobContext):
         llm=groq.LLM(model="llama-3.3-70b-versatile"),  # Using Groq's current LLM
         stt=deepgram.STT(
             model="nova-2",
-            language="en",
-            # Enable interim results for better testing
-            interim_results=True,
+            language="multi",  # Multilingual model supports Hindi, English, and more
+            interim_results=True,  # Enable interim results for better responsiveness
+            punctuate=True,
+            smart_format=True,
         ),
         tts=cartesia.TTS(
             voice="79a125e8-cd45-4c13-8a67-188112f4dd22",  # British Lady
@@ -97,23 +110,37 @@ async def entrypoint(ctx: JobContext):
         
         # ===== INTERRUPTION SETTINGS =====
         allow_interruptions=True,
-        min_interruption_duration=0.3,  # Lower for faster testing
+        min_interruption_duration=0.5,  # Require at least 0.5 seconds of speech
         min_interruption_words=1,  # Require at least 1 word to interrupt
         
         # ===== FALSE INTERRUPTION HANDLING =====
         resume_false_interruption=True,
-        false_interruption_timeout=1.5,
+        false_interruption_timeout=2.0,  # Wait 2 seconds before considering it false
         
         # ===== OTHER SETTINGS =====
         preemptive_generation=False,  # Disable for clearer testing
+        
+        # ===== TURN DETECTION =====
+        # This prevents auto-response after every user utterance
+        # turn_detection=None,  # Disable automatic turn detection to prevent auto-response
     )
 
     # Event handlers for monitoring
+    # Track stop commands to prevent auto-response
+    stop_words = ['stop', 'wait', 'chup', 'shaant', 'shant', 'ruko', 'rukho', 'enough', 'quiet', 'silence', 'khamosh']
+    last_was_stop_command = False
+    
     @session.on("user_input_transcribed")
     def on_transcript(event):
         """Log all transcriptions for debugging."""
+        nonlocal last_was_stop_command
         if event.is_final:
             logger.info(f"📝 FINAL TRANSCRIPT: '{event.transcript}'")
+            # Check if this was a stop command
+            transcript_lower = event.transcript.lower().strip()
+            last_was_stop_command = any(word in transcript_lower for word in stop_words)
+            if last_was_stop_command:
+                logger.info("🛑 STOP COMMAND - Will suppress auto-response")
         else:
             logger.debug(f"📝 Interim: '{event.transcript}'")
 
@@ -169,9 +196,17 @@ async def entrypoint(ctx: JobContext):
     logger.info("   - While agent is speaking, say: 'umm okay stop'")
     logger.info("   - Expected: Agent stops (contains valid command)")
     logger.info("")
-    logger.info("5️⃣  HINDI FILLERS (if applicable):")
-    logger.info("   - While agent speaks, say: 'haan' or 'accha'")
+    logger.info("5️⃣  HINDI SUPPORT:")
+    logger.info("   - Try speaking in Hindi: 'mausam kaisa hai?'")
+    logger.info("   - Expected: Agent responds in Hindi")
+    logger.info("")
+    logger.info("6️⃣  HINDI FILLERS:")
+    logger.info("   - While agent speaks, say: 'haan', 'accha', 'theek', 'matlab'")
     logger.info("   - Expected: Agent continues (Hindi filler ignored)")
+    logger.info("")
+    logger.info("7️⃣  MIXED LANGUAGE (Code-switching):")
+    logger.info("   - Say: 'hello, mausam batao Delhi ka'")
+    logger.info("   - Expected: Agent understands and responds appropriately")
     logger.info("")
     logger.info("=" * 80)
     logger.info("💡 Tips:")
@@ -183,10 +218,7 @@ async def entrypoint(ctx: JobContext):
     # Generate initial greeting
     session.generate_reply(
         instructions=(
-            "Greet the user warmly and tell them you're ready to help test "
-            "the filler word detection system. Mention that they can ask you "
-            "to tell a story or count numbers to test interruptions. "
-            "Keep this greeting relatively short (about 10 seconds)."
+            "Say: 'Hello! How can I help you today?'"
         )
     )
     

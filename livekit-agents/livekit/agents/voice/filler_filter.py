@@ -30,16 +30,42 @@ class FillerWordFilter:
     
     DEFAULT_FILLER_WORDS = [
         # English fillers
-        "uh", "um", "umm", "uhh", "hmm", "hm", "mhm", "mmm",
-        "ah", "ahh", "er", "err", "like",
-        # Hindi fillers
-        "haan", "haa", "accha", "theek",
+        "uh", "um", "umm", "uhhh", "uhh", "hmm", "hm", "mhm", "mmm", "mhmm",
+        "ah", "ahh", "ahhh", "er", "err", "errm", "like", "you know", "i mean",
+        "well", "basically", "actually", "literally", "right", "yeah", "yep",
+        
+        # Hindi fillers (including Romanized and Devanagari transliterations)
+        # Keep only the most common acknowledgment fillers to avoid blocking real commands
+        "haan", "haa", "han", "ha", "accha", "acha", "achha", "theek", "thik",
+        "hmmm", "arre", "arrey", "are", "ji", "haanji", "hanji",
+        "vaise", "waise",
+        
         # Spanish fillers
-        "eh", "este", "pues",
+        "eh", "este", "pues", "bueno", "mmm", "este", "o sea", "entonces",
+        
         # French fillers
-        "euh", "ben", "alors",
+        "euh", "ben", "alors", "bah", "quoi", "voilà", "enfin",
+        
         # German fillers
-        "äh", "ähm", "also",
+        "äh", "ähm", "also", "ja", "naja", "halt",
+        
+        # Portuguese fillers
+        "né", "então", "tipo", "assim",
+        
+        # Mandarin/Chinese fillers (Pinyin)
+        "ne", "en", "zhege", "nage", "ei", "ng",
+        
+        # Japanese fillers (Romanized)
+        "ano", "eto", "eeto", "ma", "saa", "nanka",
+        
+        # Arabic fillers (Romanized)
+        "yani", "yaani", "eh", "wallah", "akeed",
+        
+        # Korean fillers (Romanized)
+        "eo", "um", "geunde", "geureon",
+        
+        # Russian fillers (Romanized)
+        "nu", "eh", "tak", "vot",
     ]
     
     def __init__(self, config: FillerFilterConfig | None = None) -> None:
