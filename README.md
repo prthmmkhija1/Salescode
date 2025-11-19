@@ -1,375 +1,528 @@
-<!--BEGIN_BANNER_IMAGE-->
+# Filler Word Filter & Multilingual Voice Agent
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="/.github/banner_dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="/.github/banner_light.png">
-  <img style="width:100%;" alt="The LiveKit icon, the name of the repository and some sample code in the background." src="https://raw.githubusercontent.com/livekit/agents/main/.github/banner_light.png">
-</picture>
+## Branch: `feature/livekit-interrupt-handler-Pratham`
 
-<!--END_BANNER_IMAGE-->
-<br />
+This branch implements an intelligent filler word detection system with multilingual support (Hindi + English) for LiveKit voice agents. The system intelligently distinguishes between filler words (like "umm", "hmm", "haan", "accha") and genuine interruptions, preventing false interruptions while maintaining responsive stop command handling.
 
-![PyPI - Version](https://img.shields.io/pypi/v/livekit-agents)
-[![PyPI Downloads](https://static.pepy.tech/badge/livekit-agents/month)](https://pepy.tech/projects/livekit-agents)
-[![Slack community](https://img.shields.io/endpoint?url=https%3A%2F%2Flivekit.io%2Fbadges%2Fslack)](https://livekit.io/join-slack)
-[![Twitter Follow](https://img.shields.io/twitter/follow/livekit)](https://twitter.com/livekit)
-[![Ask DeepWiki for understanding the codebase](https://deepwiki.com/badge.svg)](https://deepwiki.com/livekit/agents)
-[![License](https://img.shields.io/github/license/livekit/livekit)](https://github.com/livekit/livekit/blob/master/LICENSE)
+---
 
-<br />
+## What Changed
 
-Looking for the JS/TS library? Check out [AgentsJS](https://github.com/livekit/agents-js)
+### New Modules Added
 
-## What is Agents?
+#### 1. **FillerWordFilter** (`livekit-agents/livekit/agents/voice/filler_filter.py`)
 
-<!--BEGIN_DESCRIPTION-->
+- Core module for intelligent filler word detection
+- Supports 100+ filler words across 10 languages
+- Methods:
+  - `is_only_filler(text)` - Check if text contains only filler words
+  - `contains_meaningful_content(text)` - Check if text has real content beyond fillers
+  - `add_ignored_words(words)` - Dynamically add custom filler words at runtime
 
-The Agent Framework is designed for building realtime, programmable participants
-that run on servers. Use it to create conversational, multi-modal voice
-agents that can see, hear, and understand.
+#### 2. **Test Agent** (`examples/voice_agents/test_filler_filter.py`)
 
-<!--END_DESCRIPTION-->
+- Comprehensive test suite for filler detection scenarios
+- Multi-language voice agent with Hindi/English support
+- Stop command detection (English + Hindi)
+- Features:
+  - Weather lookup function tool (`get_weather()`)
+  - Automatic language matching (responds in same language as user input)
+  - Stop command suppression (prevents agent from saying "OK" after stop commands)
 
-## Features
+### New Parameters & Configuration
 
-- **Flexible integrations**: A comprehensive ecosystem to mix and match the right STT, LLM, TTS, and Realtime API to suit your use case.
-- **Integrated job scheduling**: Built-in task scheduling and distribution with [dispatch APIs](https://docs.livekit.io/agents/build/dispatch/) to connect end users to agents.
-- **Extensive WebRTC clients**: Build client applications using LiveKit's open-source SDK ecosystem, supporting all major platforms.
-- **Telephony integration**: Works seamlessly with LiveKit's [telephony stack](https://docs.livekit.io/sip/), allowing your agent to make calls to or receive calls from phones.
-- **Exchange data with clients**: Use [RPCs](https://docs.livekit.io/home/client/data/rpc/) and other [Data APIs](https://docs.livekit.io/home/client/data/) to seamlessly exchange data with clients.
-- **Semantic turn detection**: Uses a transformer model to detect when a user is done with their turn, helps to reduce interruptions.
-- **MCP support**: Native support for MCP. Integrate tools provided by MCP servers with one loc.
-- **Builtin test framework**: Write tests and use judges to ensure your agent is performing as expected.
-- **Open-source**: Fully open-source, allowing you to run the entire stack on your own servers, including [LiveKit server](https://github.com/livekit/livekit), one of the most widely used WebRTC media servers.
+**STT Configuration (Deepgram)**
 
-## Installation
+```python
+stt=deepgram.STT(
+    model="nova-2",
+    language="multi",  # Multilingual model for Hindi + English
+    interim_results=True,
+    punctuate=True,
+    smart_format=True,
+)
+```
 
-To install the core Agents library, along with plugins for popular model providers:
+**TTS Configuration (Cartesia)**
+
+```python
+tts=cartesia.TTS(
+    voice="79a125e8-cd45-4c13-8a67-188112f4dd22",  # British Lady voice
+)
+```
+
+**LLM Configuration (Groq)**
+
+```python
+llm=groq.LLM(model="llama-3.1-8b-instant")  # Fast, efficient model
+```
+
+**Interruption Settings**
+
+```python
+allow_interruptions=True,
+min_interruption_duration=0.5,  # Require 0.5s of speech to interrupt
+min_interruption_words=1,       # Require at least 1 word
+resume_false_interruption=True, # Resume speech if filler detected
+false_interruption_timeout=2.0, # Wait 2s before considering it false
+```
+
+### Logic & Algorithms
+
+**Filler Detection Algorithm**
+
+1. Normalize text (lowercase, remove punctuation)
+2. Split into words
+3. Remove filler words from word list
+4. Check if any meaningful words remain
+5. If only fillers → ignore interruption
+6. If meaningful content → allow interruption
+
+**Stop Command Detection**
+
+- Tracks stop words in both English and Hindi
+- Suppresses auto-response after stop commands
+- Prevents agent from saying "OK" acknowledgments
+
+**Language Matching**
+
+- LLM automatically detects user's language
+- Responds in the same language as input
+- Hindi input → Hindi response
+- English input → English response
+
+---
+
+## What Works
+
+### ✅ Verified Features (Manual Testing)
+
+1. **Filler Word Detection (English)**
+
+   - ✅ "umm", "hmm", "uh", "er", "like", "well" are ignored during agent speech
+   - ✅ Agent continues speaking without interruption
+
+2. **Filler Word Detection (Hindi)**
+
+   - ✅ "haan", "accha", "theek", "arre", "ji", "matlab" are ignored
+   - ✅ Agent continues speaking when user says Hindi fillers
+
+3. **Real Interruptions**
+
+   - ✅ "stop", "wait", "hold on", "enough" interrupt agent
+   - ✅ Agent stops immediately and doesn't resume
+
+4. **Hindi Stop Commands**
+
+   - ✅ "chup", "shaant", "ruko", "khamosh" interrupt agent
+   - ✅ Agent recognizes Hindi stop words as genuine interruptions
+
+5. **Multilingual Support**
+
+   - ✅ Deepgram "multi" language model transcribes Hindi and English
+   - ✅ Agent responds in the same language as user input
+   - ✅ Code-switching (Hinglish) is supported
+
+6. **False Interruption Recovery**
+
+   - ✅ When filler is detected, agent resumes speech after 2-second timeout
+   - ✅ "FALSE INTERRUPTION DETECTED - Speech RESUMED" event fires
+
+7. **LiveKit Cloud Integration**
+
+   - ✅ Agent registers successfully with LiveKit Cloud
+   - ✅ Room connections work properly
+   - ✅ Audio streaming functional
+
+8. **Dynamic Filler Word Updates**
+   - ✅ `FillerWordFilter.add_ignored_words()` method available
+   - ✅ Custom filler words can be added at runtime
+   - ✅ Changes apply immediately to detection logic
+
+---
+
+## Known Issues
+
+### ⚠️ Edge Cases & Instability
+
+1. **IPC Watcher Error (Non-Critical)**
+
+   - Error: `DuplexClosed` exception in dev mode
+   - Impact: Doesn't affect agent functionality
+   - Workaround: Ignore the error - agent still registers successfully
+
+2. **Groq Rate Limits**
+
+   - Daily token limit: 100,000 tokens for free tier
+   - Model: `llama-3.1-8b-instant` used to reduce token consumption
+   - Workaround: Use paid Groq API key or switch to smaller model
+
+3. **Stop Command Acknowledgment**
+
+   - Issue: Agent sometimes says "OK" after stop commands
+   - Current Fix: `say()` override suppresses "ok", "okay", "sure", "alright"
+   - Limitation: May suppress legitimate short responses
+
+4. **Language Detection Accuracy**
+
+   - Deepgram "multi" model may occasionally misidentify language
+   - Hindi words sometimes transcribed phonetically in English
+   - Workaround: Use clear pronunciation and avoid heavy accents
+
+5. **Filler Word Ambiguity**
+   - Some words can be fillers or meaningful (e.g., "bas" in Hindi)
+   - Current: Removed ambiguous words from filler list
+   - Trade-off: Some actual fillers may trigger interruptions
+
+---
+
+## Steps to Test
+
+### Prerequisites
+
+1. Python 3.9+
+2. LiveKit Cloud account (or local LiveKit server)
+3. API Keys:
+   - Deepgram API key
+   - Cartesia API key
+   - Groq API key
+   - LiveKit API key and secret
+
+### Setup
+
+1. **Clone & Install**
 
 ```bash
-pip install "livekit-agents[openai,silero,deepgram,cartesia,turn-detector]~=1.0"
+git clone <repository>
+cd Salescode
+git checkout feature/livekit-interrupt-handler-Pratham
+python -m venv venv
+.\venv\Scripts\activate  # Windows
+pip install -e livekit-agents
+pip install -e livekit-plugins/livekit-plugins-deepgram
+pip install -e livekit-plugins/livekit-plugins-cartesia
+pip install -e livekit-plugins/livekit-plugins-groq
+pip install -e livekit-plugins/livekit-plugins-silero
 ```
 
-## Docs and guides
+2. **Configure Environment**
+   Create `.env` file in project root:
 
-Documentation on the framework and how to use it can be found [here](https://docs.livekit.io/agents/)
+```env
+LIVEKIT_URL=wss://salescode-4rdih579.livekit.cloud
+LIVEKIT_API_KEY=APIm7Ao49d3Mv4Q
+LIVEKIT_API_SECRET=<your-secret>
 
-## Core concepts
+DEEPGRAM_API_KEY=<your-deepgram-key>
+CARTESIA_API_KEY=<your-cartesia-key>
+GROQ_API_KEY=<your-groq-key>
+```
 
-- Agent: An LLM-based application with defined instructions.
-- AgentSession: A container for agents that manages interactions with end users.
-- entrypoint: The starting point for an interactive session, similar to a request handler in a web server.
-- Worker: The main process that coordinates job scheduling and launches agents for user sessions.
+3. **Run Agent**
 
-## Usage
+```bash
+.\venv\Scripts\python.exe examples\voice_agents\test_filler_filter.py dev
+```
 
-### Simple voice agent
+4. **Access LiveKit Playground**
+   - Go to: https://cloud.livekit.io/projects/salescode-4rdih579/playground
+   - Create a new room or join existing room
+   - Agent will automatically join
+
+### Test Scenarios
+
+#### Test 1: Filler While Agent Speaks
+
+1. Say: **"Tell me about the weather"**
+2. While agent is speaking, say: **"umm"** or **"hmm"**
+3. **Expected**: Agent continues speaking (filler ignored)
+4. **Log**: `⚠️ FALSE INTERRUPTION DETECTED - Speech RESUMED`
+
+#### Test 2: Real Interruption (English)
+
+1. Say: **"Tell me about the weather"**
+2. While agent is speaking, say: **"stop"** or **"wait"**
+3. **Expected**: Agent stops immediately
+4. **Log**: Agent state changes to `listening`
+
+#### Test 3: Hindi Filler Words
+
+1. Say: **"Mausam kaisa hai?"** (What's the weather?)
+2. While agent responds in Hindi, say: **"haan"** or **"accha"**
+3. **Expected**: Agent continues speaking in Hindi
+4. **Log**: Filler ignored, no interruption
+
+#### Test 4: Hindi Stop Commands
+
+1. Say: **"Mausam ke baare mein batao"**
+2. While agent speaks, say: **"chup"** or **"shaant"** or **"ruko"**
+3. **Expected**: Agent stops immediately
+4. **Log**: Stop command detected, agent stops
+
+#### Test 5: Mixed Language (Code-Switching)
+
+1. Say: **"Hello, Delhi ka weather batao"**
+2. **Expected**: Agent understands and responds appropriately
+3. Language detection should work for Hinglish
+
+#### Test 6: Dynamic Filler Addition
+
+```python
+# In test_filler_filter.py or console
+from livekit.agents.voice.filler_filter import FillerWordFilter
+
+# Add custom fillers at runtime
+FillerWordFilter.add_ignored_words(['basically', 'literally', 'actually'])
+
+# Now "basically" will be ignored as a filler word
+```
+
+### Monitoring & Debugging
+
+**Watch Logs For:**
+
+- `📝 FINAL TRANSCRIPT:` - User speech transcription
+- `🤖 Agent: listening → thinking` - Agent processing
+- `👤 User: speaking → listening` - User speech detection
+- `⚠️ FALSE INTERRUPTION DETECTED` - Filler word ignored
+- `🛑 STOP COMMAND` - Stop word detected
+- `🔇 Suppressing acknowledgment` - "OK" suppressed
+
+**Test Summary (End of Session):**
+
+```
+📊 TEST SUMMARY
+Fillers Ignored: 0
+Real Interruptions: 0
+Fillers When Quiet: 0
+Mixed Content: 0
+```
 
 ---
 
-```python
-from livekit.agents import (
-    Agent,
-    AgentSession,
-    JobContext,
-    RunContext,
-    WorkerOptions,
-    cli,
-    function_tool,
-)
-from livekit.plugins import deepgram, elevenlabs, openai, silero
+## Environment Details
 
-@function_tool
-async def lookup_weather(
-    context: RunContext,
-    location: str,
-):
-    """Used to look up weather information."""
+### Python Version
 
-    return {"weather": "sunny", "temperature": 70}
+- **Minimum**: Python 3.9
+- **Tested**: Python 3.13
+- **Recommended**: Python 3.11+
 
+### Dependencies
 
-async def entrypoint(ctx: JobContext):
-    await ctx.connect()
+**Core Libraries**
 
-    agent = Agent(
-        instructions="You are a friendly voice assistant built by LiveKit.",
-        tools=[lookup_weather],
-    )
-    session = AgentSession(
-        vad=silero.VAD.load(),
-        # any combination of STT, LLM, TTS, or realtime API can be used
-        stt=deepgram.STT(model="nova-3"),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=elevenlabs.TTS(),
-    )
-
-    await session.start(agent=agent, room=ctx.room)
-    await session.generate_reply(instructions="greet the user and ask about their day")
-
-
-if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+```
+livekit-agents==1.3.2
+livekit==1.0.19
+python-dotenv==1.0.0
 ```
 
-You'll need the following environment variables for this example:
+**Plugin Dependencies**
 
-- DEEPGRAM_API_KEY
-- OPENAI_API_KEY
-- ELEVEN_API_KEY
+```
+livekit-plugins-deepgram (nova-2 model)
+livekit-plugins-cartesia (TTS)
+livekit-plugins-groq (LLM)
+livekit-plugins-silero (VAD)
+```
 
-### Multi-agent handoff
+**System Requirements**
+
+- Windows 10/11, Linux, or macOS
+- 4GB+ RAM
+- Stable internet connection (for cloud STT/TTS/LLM)
+
+### Configuration Instructions
+
+#### Deepgram STT
+
+- Model: `nova-2`
+- Language: `multi` (supports Hindi, English, 40+ languages)
+- Features: `interim_results`, `punctuate`, `smart_format`
+- API: https://deepgram.com/
+
+#### Cartesia TTS
+
+- Voice ID: `79a125e8-cd45-4c13-8a67-188112f4dd22` (British Lady)
+- Language Support: English, Hindi (via phonetic synthesis)
+- API: https://cartesia.ai/
+
+#### Groq LLM
+
+- Model: `llama-3.1-8b-instant` (fast, efficient)
+- Alternative: `llama-3.3-70b-versatile` (more capable, higher token usage)
+- Free Tier: 100,000 tokens/day
+- API: https://groq.com/
+
+#### LiveKit Cloud
+
+- Server: `wss://salescode-4rdih579.livekit.cloud`
+- Region: India West
+- Dashboard: https://cloud.livekit.io/
 
 ---
 
-This code snippet is abbreviated. For the full example, see [multi_agent.py](examples/voice_agents/multi_agent.py)
+## Dynamic Filler Word Management
+
+### Adding Custom Filler Words at Runtime
+
+The `FillerWordFilter` class supports dynamic updates to the ignored word list:
 
 ```python
-...
-class IntroAgent(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions=f"You are a story teller. Your goal is to gather a few pieces of information from the user to make the story personalized and engaging."
-            "Ask the user for their name and where they are from"
-        )
+from livekit.agents.voice.filler_filter import FillerWordFilter
 
-    async def on_enter(self):
-        self.session.generate_reply(instructions="greet the user and gather information")
-
-    @function_tool
-    async def information_gathered(
-        self,
-        context: RunContext,
-        name: str,
-        location: str,
-    ):
-        """Called when the user has provided the information needed to make the story personalized and engaging.
-
-        Args:
-            name: The name of the user
-            location: The location of the user
-        """
-
-        context.userdata.name = name
-        context.userdata.location = location
-
-        story_agent = StoryAgent(name, location)
-        return story_agent, "Let's start the story!"
-
-
-class StoryAgent(Agent):
-    def __init__(self, name: str, location: str) -> None:
-        super().__init__(
-            instructions=f"You are a storyteller. Use the user's information in order to make the story personalized."
-            f"The user's name is {name}, from {location}"
-            # override the default model, switching to Realtime API from standard LLMs
-            llm=openai.realtime.RealtimeModel(voice="echo"),
-            chat_ctx=chat_ctx,
-        )
-
-    async def on_enter(self):
-        self.session.generate_reply()
-
-
-async def entrypoint(ctx: JobContext):
-    await ctx.connect()
-
-    userdata = StoryData()
-    session = AgentSession[StoryData](
-        vad=silero.VAD.load(),
-        stt=deepgram.STT(model="nova-3"),
-        llm=openai.LLM(model="gpt-4o-mini"),
-        tts=openai.TTS(voice="echo"),
-        userdata=userdata,
-    )
-
-    await session.start(
-        agent=IntroAgent(),
-        room=ctx.room,
-    )
-...
+# Add custom filler words
+FillerWordFilter.add_ignored_words([
+    'basically',      # English filler
+    'literally',      # English filler
+    'dekho',          # Hindi - "look"
+    'suno',           # Hindi - "listen"
+    'yaar',           # Hindi/Urdu - "friend" (used as filler)
+])
 ```
 
-### Testing
+### Pre-Loaded Filler Words
 
-Automated tests are essential for building reliable agents, especially with the non-deterministic behavior of LLMs. LiveKit Agents include native test integration to help you create dependable agents.
+**English** (50+ words)
+
+- `uh`, `um`, `hmm`, `mm`, `mhm`, `ah`, `er`
+- `like`, `well`, `you know`, `i mean`, `basically`
+- All variations: `umm`, `ummm`, `hmmm`, `hmmmm`, etc.
+
+**Hindi** (40+ words)
+
+- `haan`, `accha`, `theek`, `arre`, `ji`, `vaise`
+- `matlab`, `bilkul`, `sahi`, `huh`, `hmm`
+- `achha`, `acha`, `thik`, `are`, `waise`
+
+**Other Languages** (60+ words)
+
+- Spanish: `eh`, `pues`, `este`, `bueno`
+- French: `euh`, `ben`, `alors`, `voilà`
+- German: `äh`, `ähm`, `also`, `na ja`
+- Portuguese: `né`, `tipo`, `então`
+- Chinese: `嗯` (en), `那个` (nàge), `就是` (jiùshì)
+- Japanese: `あの` (ano), `えっと` (etto), `まあ` (maa)
+- Arabic: `يعني` (ya'ni), `طيب` (tayyib)
+- Korean: `음` (eum), `그` (geu), `뭐` (mwo)
+- Russian: `ну` (nu), `вот` (vot), `это` (eto)
+
+### Checking Current Filler List
 
 ```python
-@pytest.mark.asyncio
-async def test_no_availability() -> None:
-    llm = google.LLM()
-    async AgentSession(llm=llm) as sess:
-        await sess.start(MyAgent())
-        result = await sess.run(
-            user_input="Hello, I need to place an order."
-        )
-        result.expect.skip_next_event_if(type="message", role="assistant")
-        result.expect.next_event().is_function_call(name="start_order")
-        result.expect.next_event().is_function_call_output()
-        await (
-            result.expect.next_event()
-            .is_message(role="assistant")
-            .judge(llm, intent="assistant should be asking the user what they would like")
-        )
+from livekit.agents.voice.filler_filter import FillerWordFilter
 
+filter = FillerWordFilter()
+print(filter._ignored_words)  # View all ignored words
 ```
 
-## Examples
+---
 
-<table>
-<tr>
-<td width="50%">
-<h3>🎙️ Starter Agent</h3>
-<p>A starter agent optimized for voice conversations.</p>
-<p>
-<a href="examples/voice_agents/basic_agent.py">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>🔄 Multi-user push to talk</h3>
-<p>Responds to multiple users in the room via push-to-talk.</p>
-<p>
-<a href="examples/voice_agents/push_to_talk.py">Code</a>
-</p>
-</td>
-</tr>
+## Architecture Overview
 
-<tr>
-<td width="50%">
-<h3>🎵 Background audio</h3>
-<p>Background ambient and thinking audio to improve realism.</p>
-<p>
-<a href="examples/voice_agents/background_audio.py">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>🛠️ Dynamic tool creation</h3>
-<p>Creating function tools dynamically.</p>
-<p>
-<a href="examples/voice_agents/dynamic_tool_creation.py">Code</a>
-</p>
-</td>
-</tr>
-
-<tr>
-<td width="50%">
-<h3>☎️ Outbound caller</h3>
-<p>Agent that makes outbound phone calls</p>
-<p>
-<a href="https://github.com/livekit-examples/outbound-caller-python">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>📋 Structured output</h3>
-<p>Using structured output from LLM to guide TTS tone.</p>
-<p>
-<a href="examples/voice_agents/structured_output.py">Code</a>
-</p>
-</td>
-</tr>
-
-<tr>
-<td width="50%">
-<h3>🔌 MCP support</h3>
-<p>Use tools from MCP servers</p>
-<p>
-<a href="examples/voice_agents/mcp">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>💬 Text-only agent</h3>
-<p>Skip voice altogether and use the same code for text-only integrations</p>
-<p>
-<a href="examples/other/text_only.py">Code</a>
-</p>
-</td>
-</tr>
-
-<tr>
-<td width="50%">
-<h3>📝 Multi-user transcriber</h3>
-<p>Produce transcriptions from all users in the room</p>
-<p>
-<a href="examples/other/transcription/multi-user-transcriber.py">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>🎥 Video avatars</h3>
-<p>Add an AI avatar with Tavus, Beyond Presence, and Bithuman</p>
-<p>
-<a href="examples/avatar_agents/">Code</a>
-</p>
-</td>
-</tr>
-
-<tr>
-<td width="50%">
-<h3>🍽️ Restaurant ordering and reservations</h3>
-<p>Full example of an agent that handles calls for a restaurant.</p>
-<p>
-<a href="examples/voice_agents/restaurant_agent.py">Code</a>
-</p>
-</td>
-<td width="50%">
-<h3>👁️ Gemini Live vision</h3>
-<p>Full example (including iOS app) of Gemini Live agent that can see.</p>
-<p>
-<a href="https://github.com/livekit-examples/vision-demo">Code</a>
-</p>
-</td>
-</tr>
-
-</table>
-
-## Running your agent
-
-### Testing in terminal
-
-```shell
-python myagent.py console
+```
+User Speech
+    ↓
+Deepgram STT (multi-language)
+    ↓
+Transcript → FillerWordFilter.is_only_filler()
+    ↓
+    ├─→ Only Filler? → Ignore Interruption → Agent Continues
+    ↓
+    └─→ Real Content? → Allow Interruption → Agent Stops
+            ↓
+        Groq LLM Processing
+            ↓
+        Language Matching (Hindi/English)
+            ↓
+        Cartesia TTS
+            ↓
+        Audio Output
 ```
 
-Runs your agent in terminal mode, enabling local audio input and output for testing.
-This mode doesn't require external servers or dependencies and is useful for quickly validating behavior.
+---
 
-### Developing with LiveKit clients
+## Future Enhancements
 
-```shell
-python myagent.py dev
-```
+### Planned Features
 
-Starts the agent server and enables hot reloading when files change. This mode allows each process to host multiple concurrent agents efficiently.
+1. **Confidence-Based Filtering**
 
-The agent connects to LiveKit Cloud or your self-hosted server. Set the following environment variables:
-- LIVEKIT_URL
-- LIVEKIT_API_KEY
-- LIVEKIT_API_SECRET
+   - Use STT confidence scores to validate filler detection
+   - Threshold: confidence < 0.6 → likely filler
 
-You can connect using any LiveKit client SDK or telephony integration.
-To get started quickly, try the [Agents Playground](https://agents-playground.livekit.io/).
+2. **Context-Aware Detection**
 
-### Running for production
+   - Track conversation context to identify fillers
+   - Example: "hmm" while thinking vs. "hmm" as acknowledgment
 
-```shell
-python myagent.py start
-```
+3. **Machine Learning Classification**
 
-Runs the agent with production-ready optimizations.
+   - Train model to classify filler vs. meaningful speech
+   - Use audio features (pitch, duration, volume) as inputs
 
-## Contributing
+4. **User-Specific Filler Profiles**
 
-The Agents framework is under active development in a rapidly evolving field. We welcome and appreciate contributions of any kind, be it feedback, bugfixes, features, new plugins and tools, or better documentation. You can file issues under this repo, open a PR, or chat with us in LiveKit's [Slack community](https://livekit.io/join-slack).
+   - Learn individual user's filler patterns
+   - Adapt detection based on user behavior
 
-<!--BEGIN_REPO_NAV-->
-<br/><table>
-<thead><tr><th colspan="2">LiveKit Ecosystem</th></tr></thead>
-<tbody>
-<tr><td>LiveKit SDKs</td><td><a href="https://github.com/livekit/client-sdk-js">Browser</a> · <a href="https://github.com/livekit/client-sdk-swift">iOS/macOS/visionOS</a> · <a href="https://github.com/livekit/client-sdk-android">Android</a> · <a href="https://github.com/livekit/client-sdk-flutter">Flutter</a> · <a href="https://github.com/livekit/client-sdk-react-native">React Native</a> · <a href="https://github.com/livekit/rust-sdks">Rust</a> · <a href="https://github.com/livekit/node-sdks">Node.js</a> · <a href="https://github.com/livekit/python-sdks">Python</a> · <a href="https://github.com/livekit/client-sdk-unity">Unity</a> · <a href="https://github.com/livekit/client-sdk-unity-web">Unity (WebGL)</a> · <a href="https://github.com/livekit/client-sdk-esp32">ESP32</a></td></tr><tr></tr>
-<tr><td>Server APIs</td><td><a href="https://github.com/livekit/node-sdks">Node.js</a> · <a href="https://github.com/livekit/server-sdk-go">Golang</a> · <a href="https://github.com/livekit/server-sdk-ruby">Ruby</a> · <a href="https://github.com/livekit/server-sdk-kotlin">Java/Kotlin</a> · <a href="https://github.com/livekit/python-sdks">Python</a> · <a href="https://github.com/livekit/rust-sdks">Rust</a> · <a href="https://github.com/agence104/livekit-server-sdk-php">PHP (community)</a> · <a href="https://github.com/pabloFuente/livekit-server-sdk-dotnet">.NET (community)</a></td></tr><tr></tr>
-<tr><td>UI Components</td><td><a href="https://github.com/livekit/components-js">React</a> · <a href="https://github.com/livekit/components-android">Android Compose</a> · <a href="https://github.com/livekit/components-swift">SwiftUI</a> · <a href="https://github.com/livekit/components-flutter">Flutter</a></td></tr><tr></tr>
-<tr><td>Agents Frameworks</td><td><b>Python</b> · <a href="https://github.com/livekit/agents-js">Node.js</a> · <a href="https://github.com/livekit/agent-playground">Playground</a></td></tr><tr></tr>
-<tr><td>Services</td><td><a href="https://github.com/livekit/livekit">LiveKit server</a> · <a href="https://github.com/livekit/egress">Egress</a> · <a href="https://github.com/livekit/ingress">Ingress</a> · <a href="https://github.com/livekit/sip">SIP</a></td></tr><tr></tr>
-<tr><td>Resources</td><td><a href="https://docs.livekit.io">Docs</a> · <a href="https://github.com/livekit-examples">Example apps</a> · <a href="https://livekit.io/cloud">Cloud</a> · <a href="https://docs.livekit.io/home/self-hosting/deployment">Self-hosting</a> · <a href="https://github.com/livekit/livekit-cli">CLI</a></td></tr>
-</tbody>
-</table>
-<!--END_REPO_NAV-->
+5. **Real-Time Analytics Dashboard**
+   - Visualize filler detection statistics
+   - Monitor interruption patterns
+   - Track language distribution
+
+---
+
+## Troubleshooting
+
+### Agent Not Listening
+
+- **Check**: Terminal output for transcripts (`📝 FINAL TRANSCRIPT:`)
+- **Solution**: Verify Deepgram API key and `language="multi"`
+- **Test**: Say "Hello" clearly and wait for transcript
+
+### Hindi Not Recognized
+
+- **Check**: STT language configuration (`language="multi"`)
+- **Solution**: Ensure clear pronunciation, reduce background noise
+- **Test**: Say "Namaste" - should transcribe as "Namaste"
+
+### Stop Commands Not Working
+
+- **Check**: Stop words list in `STOP_WORDS`
+- **Solution**: Verify word is in list, add if missing
+- **Test**: Say "stop" clearly - agent should stop immediately
+
+### Agent Responds in Wrong Language
+
+- **Check**: LLM instructions in `TestAgent.__init__()`
+- **Solution**: Ensure "Reply in the SAME language" instruction is present
+- **Test**: Say "Hello" (should get English), "Namaste" (should get Hindi)
+
+### Rate Limit Errors
+
+- **Check**: Groq API token usage in error message
+- **Solution**: Use paid API key or switch to `llama-3.1-8b-instant`
+- **Monitor**: Token usage in Groq dashboard
+
+---
+
+## Contributors
+
+- **Pratham** - Filler filter implementation, multilingual support
+- **LiveKit Team** - Core agent framework
+
+## License
+
+This project follows the same license as the main LiveKit Agents repository.
+
+---
+
+## Support
+
+For issues or questions:
+
+1. Check [LiveKit Agents Documentation](https://docs.livekit.io/agents/)
+2. Open an issue on GitHub
+3. Join [LiveKit Slack Community](https://livekit.io/join-slack)
