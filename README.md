@@ -1,5 +1,11 @@
 # Filler Word Filter & Multilingual Voice Agent
 
+## Project Explanation
+
+📹 [Watch Project Explanation Video](https://drive.google.com/file/d/1KQAht7SsoK4wbKHDLqYe8LabfLhy-feE/view?usp=drive_link)
+
+---
+
 ## Branch: `feature/livekit-interrupt-handler-Pratham`
 
 This branch implements an intelligent filler word detection system with multilingual support (Hindi + English) for LiveKit voice agents. The system intelligently distinguishes between filler words (like "umm", "hmm", "haan", "accha") and genuine interruptions, preventing false interruptions while maintaining responsive stop command handling.
