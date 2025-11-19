@@ -29,16 +29,39 @@ class FillerWordFilter:
     """Filters filler words to prevent false interruptions during agent speech."""
     
     DEFAULT_FILLER_WORDS = [
-        # English fillers
-        "uh", "um", "umm", "uhhh", "uhh", "hmm", "hm", "mhm", "mmm", "mhmm",
-        "ah", "ahh", "ahhh", "er", "err", "errm", "like", "you know", "i mean",
-        "well", "basically", "actually", "literally", "right", "yeah", "yep",
+        # English fillers - thinking sounds
+        "uh", "um", "umm", "ummm", "uhhh", "uhh", 
+        "hmm", "hm", "hmm hmm", "hmmm", "hmmmm", "mm", "mmm", "mmmm",
+        "mhm", "mhmm", "mm hmm", "mm-hmm", "uh huh", "uh-huh",
+        "ah", "ahh", "ahhh", "er", "err", "errm",
         
-        # Hindi fillers (including Romanized and Devanagari transliterations)
-        # Keep only the most common acknowledgment fillers to avoid blocking real commands
-        "haan", "haa", "han", "ha", "accha", "acha", "achha", "theek", "thik",
-        "hmmm", "arre", "arrey", "are", "ji", "haanji", "hanji",
-        "vaise", "waise",
+        # English filler words/phrases
+        "like", "you know", "i mean", "well", "basically", "actually", 
+        "literally", "right", "yeah", "yep", "yup", "nah",
+        
+        # Hindi fillers (Romanized, Devanagari transliterations, and Hinglish)
+        # Acknowledgments and agreements (NOT including stop commands)
+        "haan", "haa", "han", "ha", "haanji", "hanji", "han ji", "haan ji",
+        "accha", "acha", "achha", "aacha", "achchha",
+        "theek", "thik", "theek hai", "thik hai", "sahi", "sahi hai",
+        "bilkul", "bilkool", "haa bilkul",
+        
+        # Thinking sounds and hesitations
+        "hmmm", "hmm", "umm", "ummm",
+        
+        # Exclamations and attention markers (discourse markers, not commands)
+        "arre", "arrey", "are", "arre bhai", "are yaar",
+        "oho", "aho", "arey wah",
+        
+        # Respectful acknowledgments
+        "ji", "ji haan", "ji han", "sahab", "sirji",
+        
+        # Filler phrases (not commands)
+        "vaise", "waise", "toh", "to", "matlab", "mtlb", "yaani", "yani",
+        "kya bolu", "kaise bolu", "aisa hai",
+        
+        # Agreement/continuation markers
+        "haan haan", "achha achha", "theek theek",
         
         # Spanish fillers
         "eh", "este", "pues", "bueno", "mmm", "este", "o sea", "entonces",

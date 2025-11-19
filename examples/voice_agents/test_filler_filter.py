@@ -1,9 +1,3 @@
-"""
-Test Suite for Filler Word Filter
-Tests the intelligent filler detection system with various scenarios.
-
-Run with: python examples/voice_agents/test_filler_filter.py
-"""
 
 import asyncio
 import logging
@@ -12,8 +6,6 @@ from typing import AsyncIterable
 
 from dotenv import load_dotenv
 
-# Load .env FIRST before any other imports that might use env vars
-# Get absolute path to project root
 import pathlib
 project_root = pathlib.Path(__file__).parent.parent.parent
 load_dotenv(dotenv_path=project_root / ".env", override=True)
@@ -29,7 +21,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("filler-filter-test")
 
-# Test scenarios counter
 test_results = {
     "filler_ignored": 0,
     "real_interruption": 0,
@@ -41,17 +32,24 @@ test_results = {
 class TestAgent(Agent):
     """Test agent that stays silent after stop commands."""
     
-    # Words that should make agent completely silent
-    STOP_WORDS = ['stop', 'wait', 'chup', 'shaant', 'shant', 'ruko', 'rukho', 'enough', 'quiet', 'silence', 'khamosh']
+    # Words that should make agent completely silent (English + Hindi + Hinglish)
+    STOP_WORDS = [
+        # English
+        'stop', 'wait', 'enough', 'quiet', 'silence', 'hold on', 'hold',
+        # Hindi/Hinglish stop commands - specific phrases only
+        'chup', 'choop', 'shaant', 'shant', 'khamosh',
+        'ruko', 'rukho', 'ruk ja', 'ruk jao',
+        'bas karo', 'band karo', 'mat bolo',
+    ]
     
     def __init__(self) -> None:
         super().__init__(
             instructions=(
-                "You are a helpful multilingual voice assistant. "
-                "Answer questions naturally and conversationally. "
-                "If the user speaks Hindi, respond in Hindi. If they speak English, respond in English. "
-                "Keep responses concise and friendly. "
-                "CRITICAL: If the user says ONLY stop/wait/chup/shaant/ruko, respond with exactly: 'OK'"
+                "You are a helpful voice assistant. "
+                "Reply in the SAME language as the user's input. "
+                "If user speaks Hindi, respond in Hindi. If English, respond in English. "
+                "Keep responses short, clear, and friendly. "
+                "When interrupted, NEVER respond - just stay completely silent."
             ),
         )
     
@@ -96,11 +94,14 @@ async def entrypoint(ctx: JobContext):
     # Create session with basic voice agent settings
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
-        llm=groq.LLM(model="llama-3.3-70b-versatile"),  # Using Groq's current LLM
+        llm=groq.LLM(
+            model="llama-3.1-8b-instant",
+            temperature=0.7,
+        ),
         stt=deepgram.STT(
             model="nova-2",
-            language="multi",  # Multilingual model supports Hindi, English, and more
-            interim_results=True,  # Enable interim results for better responsiveness
+            language="multi",  # Multi-language model - supports Hindi, English, and code-switching
+            interim_results=True,
             punctuate=True,
             smart_format=True,
         ),
@@ -126,8 +127,12 @@ async def entrypoint(ctx: JobContext):
     )
 
     # Event handlers for monitoring
-    # Track stop commands to prevent auto-response
-    stop_words = ['stop', 'wait', 'chup', 'shaant', 'shant', 'ruko', 'rukho', 'enough', 'quiet', 'silence', 'khamosh']
+    # Track stop commands to prevent auto-response (English + Hindi)
+    stop_words = [
+        'stop', 'wait', 'enough', 'quiet', 'silence', 'hold',
+        'chup', 'choop', 'shaant', 'shant', 'khamosh',
+        'ruko', 'rukho', 'ruk ja', 'bas karo', 'band karo', 'mat bolo'
+    ]
     last_was_stop_command = False
     
     @session.on("user_input_transcribed")
@@ -140,7 +145,7 @@ async def entrypoint(ctx: JobContext):
             transcript_lower = event.transcript.lower().strip()
             last_was_stop_command = any(word in transcript_lower for word in stop_words)
             if last_was_stop_command:
-                logger.info("🛑 STOP COMMAND - Will suppress auto-response")
+                logger.info("🛑 STOP COMMAND DETECTED - Agent will stay silent")
         else:
             logger.debug(f"📝 Interim: '{event.transcript}'")
 
@@ -169,7 +174,12 @@ async def entrypoint(ctx: JobContext):
         logger.info(f"🗣️  Speech created: {event.source} (interruptions: {event.speech_handle.allow_interruptions})")
 
     # Start the session
-    await session.start(agent=TestAgent(), room=ctx.room)
+    agent = TestAgent()
+    await session.start(agent=agent, room=ctx.room)
+    
+    # Send initial greeting through the session
+    await asyncio.sleep(1)  # Wait for session to be ready
+    session.say("Hello! How can I assist you today?")
     
     # Print welcome message with test instructions
     logger.info("\n" + "=" * 80)
@@ -218,7 +228,7 @@ async def entrypoint(ctx: JobContext):
     # Generate initial greeting
     session.generate_reply(
         instructions=(
-            "Say: 'Hello! How can I help you today?'"
+            "Say: 'Hello! How can I assist you today?'"
         )
     )
     
